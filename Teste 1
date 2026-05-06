@@ -1,0 +1,155 @@
+local player = game.Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local gui = script.Parent
+local main = gui:WaitForChild("Main")
+local openBtn = gui:WaitForChild("OpenButton")
+
+-- CONFIG SAVE
+local settings = {
+	Fly = false,
+	InfJump = false,
+	Noclip = false,
+	Speed = false
+}
+
+-- estados
+local flyForce
+
+-- TOGGLE VISUAL
+local function setToggle(button, state)
+	settings[button.Name] = state
+	
+	if state then
+		button.BackgroundColor3 = Color3.fromRGB(0,170,0)
+		button.Text = button.Name .. ": ON"
+	else
+		button.BackgroundColor3 = Color3.fromRGB(50,50,50)
+		button.Text = button.Name .. ": OFF"
+	end
+end
+
+-- ANIMAÇÃO MENU
+local function toggleMenu()
+	main.Visible = true
+	
+	if main.Size.X.Offset == 0 then
+		TweenService:Create(main, TweenInfo.new(0.25), {
+			Size = UDim2.new(0,260,0,300)
+		}):Play()
+	else
+		local t = TweenService:Create(main, TweenInfo.new(0.25), {
+			Size = UDim2.new(0,0,0,0)
+		})
+		t:Play()
+		t.Completed:Wait()
+		main.Visible = false
+	end
+end
+
+openBtn.MouseButton1Click:Connect(toggleMenu)
+
+-- DRAG
+local dragging, dragInput, dragStart, startPos
+
+main.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 
+	or input.UserInputType == Enum.UserInputType.Touch then
+		
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+		
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+main.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement 
+	or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		local delta = input.Position - dragStart
+		main.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+-- SISTEMAS
+
+-- FLY
+main.Fly.MouseButton1Click:Connect(function()
+	local new = not settings.Fly
+	setToggle(main.Fly, new)
+	
+	local char = player.Character
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+	
+	if new then
+		flyForce = Instance.new("BodyVelocity")
+		flyForce.MaxForce = Vector3.new(100000,100000,100000)
+		flyForce.Velocity = Vector3.new(0,50,0)
+		flyForce.Parent = hrp
+	else
+		if flyForce then flyForce:Destroy() end
+	end
+end)
+
+-- INF JUMP
+main.InfJump.MouseButton1Click:Connect(function()
+	setToggle(main.InfJump, not settings.InfJump)
+end)
+
+UIS.JumpRequest:Connect(function()
+	if settings.InfJump then
+		local char = player.Character
+		if char and char:FindFirstChild("Humanoid") then
+			char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+		end
+	end
+end)
+
+-- NOCLIP
+RunService.Stepped:Connect(function()
+	if settings.Noclip then
+		local char = player.Character
+		if char then
+			for _, v in pairs(char:GetDescendants()) do
+				if v:IsA("BasePart") then
+					v.CanCollide = false
+				end
+			end
+		end
+	end
+end)
+
+main.Noclip.MouseButton1Click:Connect(function()
+	setToggle(main.Noclip, not settings.Noclip)
+end)
+
+-- SPEED
+main.Speed.MouseButton1Click:Connect(function()
+	local new = not settings.Speed
+	setToggle(main.Speed, new)
+	
+	local char = player.Character
+	if char and char:FindFirstChild("Humanoid") then
+		char.Humanoid.WalkSpeed = new and 50 or 16
+	end
+end)
